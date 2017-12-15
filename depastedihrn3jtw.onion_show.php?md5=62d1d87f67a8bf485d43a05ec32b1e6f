@@ -1,0 +1,152 @@
+The recent wave of DVR attacks
+
+DrCy, October 8, 2017 - 4:32 pm UTC
+
+10/7/2017
+
+Here's somecurrent information on the recent 'wave of DVR attacks' (as 
+documented by IPVM.com and others). I'm hoping it will facilitate the
+diagnosing of symptoms of malfunctioning devices.
+
+Attacks against Hikvision units: 
+
+* Common logins (12345, 654321, 111111 etc) are attempted via common web
+  interface ports through the PSIA API. If successful, the unit's network
+  settings are randomized, and if this does not disconnect the unit then
+  a factory reset is attempted. The symptoms are either a device which 
+  has lost its usual IP, or a factory reset unit.
+* If the above attack does not work, the recently disclosed Montecrypto 
+  authentication bypass (CVE-2017-7921, ICSA-17-124-01) is attempted. 
+  Under this condition only a factory reset is carried out. The symptoms 
+  in this case are a factory reset device.
+* If the unit has an exposed telnetd interface, some (to my knowledge 
+  0-day, no CVE exists) attacks are attempted which will either brick or
+  fork bomb the unit, or prevent it from booting up at next reboot. The 
+  symptoms of this attack vary and are very firmware dependent.
+
+Attacks against Dahua units:
+
+* 'Bashis Generation 2 and 3' authentication bypasses (CVE-2017-7927, 
+  ICSA-17-124-02) are attempted against the web interface. The first 
+  viable-looking account in the userlist is targeted (usually 888888). 
+  If login is successful, camera settings are tampered with to dim the 
+  feeds and display "HACKED" as a watermark. Recently some feeds will 
+  also get the text "UPGRADE" and "FIRMWARE" for additional clarity. 
+  Unit's network settings are tampered with in an attempt to disconnect 
+  the vulnerable unit from the WAN.
+* If unit has an exposed telnetd interface some well-known backdoor 
+  account logins (CVE-2013-3612) are attempted, and on successful login 
+  the unit will be bricked. The symptoms in this case will be a bricked 
+  device, all partitions overwritten with random data.
+* If port 6789's or 19058's management interface is open to the WAN an 
+  attempt is made to extract the userlist from the data port 37777 
+  (CVE-2013-6117). If a hash is successfully extracted an attempt to 
+  reverse it is carried out (CVE-2013-3615). If hash reversing isn't 
+  successful or port 37777 isn't exploitable then common logins are used 
+  instead. On successful management interface login the unit will be 
+  bricked. The symptoms in this case will be a bricked device, with all 
+  partitions overwritten with random data. Although these vulnerabilities
+  are now 4 years old there are still sadly some new units appearing 
+  every day.
+
+Attacks against XiongMai units (often sold as whitelabeled/noname DVRs):
+
+* Login and password hash is extracted via CVE-2017-7577. If successful 
+  an attempt is made to reverse the hash (which is similarily weak as 
+  Dahua CVE-2013-3615), and some further web commands are carried out 
+  which attempt to tamper with the camera settings through the dvrcmd 
+  API. If the unit has exposed its management interface on port 9527 to 
+  the WAN the reversed hash will be used to log in and attempt to brick 
+  the unit (approx 70% success rate), or tamper with its network settings
+  to disconnect it from the WAN. 
+* If the unit has an exposed telnetd interface some well-known backdoor 
+  account logins are attempted, and if successful the unit will be 
+  bricked.
+* If unit is still online after approx 90 minutes then a (to my knowledge
+  an unknown buffer overflow vulnerability) is used to crash the unit's 
+  daemons non-stop for the next 5-8 hours. This is done in an attempt to 
+  encourage the owner to manually reboot the unit to clear any resident 
+  malware and hopefully re-expose its vulnerable telnetd interface on 
+  bootup. 
+
+  The symptoms of the above XiongMai attacks vary. The unit might be 
+  bricked (all partitions overwritten) outright, or it could be in a 
+  constant restart cycle (which might look like the unit is constantly 
+  rebooting but it's just restarting the crashing server process). In 
+  this case it's best to unplug the device from the Internet before 
+  rebooting it as the reboot might expose its telnetd to a bricking 
+  attack.
+
+Attacks against TVT units (whitelabeled, many vendors):
+
+* RCE is attempted via the web interface (EDB-ID 39596). If vulnerable 
+  the unit will be bricked and partitions overwritten with random data.
+
+Attacks against Hanbang Gaoke units (typically branded 'Smart DVR'):
+
+* CVE-2017-14335 is attempted to reset the admin password. If web login 
+  is successful, the unit's disk is formatted, the network settings are 
+  tampered with to disconnect it from the WAN, and the watermark 
+  overlays of the first 4 cameras are updated to say "HACKED"
+
+Symptoms and behaviors of some common IP camera-specific attacks:
+
+Attacks against Avtech units:
+
+* Authentication bypass (EDB-ID 40500) is attempted via the web 
+  interface. If login is successful bricking is attempted via associated 
+  RCEs, and if these are unsuccessful the camera's network settings are 
+  scrambled to disconnect it from the WAN. Symptoms range from unit being
+  bricked (partitions overwritten with random data) or the camera losing 
+  its usual IP. 
+* As a fallback CVE-2013-4981 is attempted in order to simply crash the 
+  unit until it's manually rebooted. 
+
+Attacks against Wificam units (whitelabeled, many vendors):
+
+* CVE-2017-8225 is attempted via the web interface to extract device 
+  configuration. On successful login bricking is attempted via associated
+  RCEs, and if these are unsuccessful the unit's network settings are 
+  tampered with in an attempt to disconnect it. If the unit is still 
+  online (this happens for approx 15% of units) some additional camera 
+  settings are tampered with in a bid to get the owner's attention (for 
+  example camera's PTZ is configured to endlessly patrol up and down).
+
+My botnet was originally designed to disable systems infected with IoT
+and router malware (such as Mirai) so there are payloads for a wide range
+of devices but the above are currently the most commonly executed NVR and 
+camera payloads by far. I'm estimating over 1.1m units affected with the 
+above payloads since mid-September, and that includes 564k Hikvisions and 
+379k Dahuas. That may sound like a lot for three weeks but the numbers 
+pale in comparison to the poorly secured consumer ISP and telco networks 
+which are still the primary threat. It's in any case noteworthy that so 
+many vulnerable units were easily accessible on the Internet months after 
+the manufacturers issued security bulletins and patches. The current 
+methodology for getting critical security patches to these devices is 
+clearly dangerously ineffective.
+
+I strongly recommend that any IoT devices such as NVRs and IP cameras are
+protected behind a VPN or firewall rather than placed directly on the 
+Internet. Changing the public listening port of a vulnerable device will 
+only delay the inevitable and it will sooner or later pose a threat to 
+the rest of the Internet.
+
+I'm sorry for the inconvenience that has been caused, and I hope this 
+information helps. I keep seeing postings on CCTV forums where people 
+describe exact symptoms of these attacks, and in all cases the solution
+(and prevention) would simply have been to protect the vulnerable devices
+from open Internet access. 
+
+As a final thought I believe much of the current IoT security mess could
+be fixed or at least significantly improved by establishing badly secured
+devices as 'attractive nuisances.' Victims of DDoS with solid legal 
+support (such as Akamai or Verisign) could in theory accelerate the 
+matter through our courts (think of your bandwidth savings in 2017 as my
+contribution towards your legal costs :P). There's generally no doubt 
+regarding the origin of Layer 7 attacks and all it would take would be 
+two or three precedents against a negligent device owner to start 
+changing the liability landscape. Whether or not it's the device owner 
+or the device manufacturer who actually owns the (liability) problem is 
+best determined on a case-by-case basis.
+
+-J
